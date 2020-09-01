@@ -108,5 +108,5 @@ process.on('uncaughtException', function (err) {
 
   
   // Connect
-  mpc.connect("http://" + server_ip, computation_id, options);
+  mpc.connect("http://3.131.169.43" , computation_id, options);
   
