@@ -8,7 +8,7 @@ new JIFFServer(http, { logs:true });
 
 const remote = process.argv[2];
 
-var port = 8085;
+var port = 8083;
 
 if (remote == "remote") {
   port = 80;
