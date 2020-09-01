@@ -1,22 +1,6 @@
 const fs = require('fs');
 var crypto = require('crypto');
-
-
-function hexStrToBinaryStr(hex){
-  var binString = "";
-  for (var i = 0; i < hex.length/2; i++) {
-    var substr = (parseInt(hex[i], 16).toString(2)).padStart(8, '0');
-    binString += substr;
-  }
-  return binString;
-}
-
-function toHexString(byteArray) {
-  return Array.prototype.map.call(byteArray, function(byte) {
-  return ('0' + (byte & 0xFF).toString(16)).slice(-2);
-  }).join('');
-}
-
+const {performance} = require('perf_hooks');
 
 
 process.on('uncaughtException', function (err) {
@@ -39,7 +23,7 @@ process.on('uncaughtException', function (err) {
   var mpc = require('./mpc');
   
   // Read Command line arguments
-  var input =process.argv[2];
+  var input = process.argv[2];
 
   var party_count = process.argv[3];
   if (party_count == null) {
@@ -63,70 +47,66 @@ process.on('uncaughtException', function (err) {
       return;
   }
 
-  
-
-  var threshold = 2;
+  var threshold = 3;
   var keysize = 256;
   // JIFF options
+  
   var options = {party_count: party_count, party_id: party_id};
   options.onConnect = function (jiff_instance) {
+
     if (isShare == 'share') {
-
-
-        var binaryString = hexStrToBinaryStr(input);
+      const start = performance.now()
+      let binaryString = input;
         var input_arr = [];
         for (var i = 0; i < binaryString.length; i++) {
             input_arr[i] = parseInt(binaryString[i]);
         }
-        console.log('input', binaryString, input_arr);
         var promise = mpc.shareKey(input_arr, threshold, party_count, party_id, jiff_instance);
     
-        promise.then(function (v) {
-            console.log(v)
-
-          var keyholder = party_count.toString();
-
-          var values = [];
-          var promises = [];
-          for (var i = 0; i < keysize; i++) {
-            promises.push(v[keyholder][i].value);
-          }
-
-          Promise.all(promises).then((values) => {
-            console.log(values)
-            fs.writeFile('demos/gr/shares' + party_id.toString() + '.txt', JSON.stringify(values), function(err) {
-              if (err) {
-                  console.log('error', err);
-              }
-              jiff_instance.disconnect(true, true);
+        if (party_id !== party_count) {
+          promise.then(function (v) {
+            var keyholder = party_count.toString();
+  
+            var values = [];
+            var promises = [];
+            for (var i = 0; i < keysize; i++) {
+              promises.push(v[keyholder][i].value);
+            }
+  
+            Promise.all(promises).then((values) => {
+              console.log("TIME (ms): ", performance.now()-start)
+              fs.writeFile('demos/gr/shares' + party_id.toString() + '.txt', JSON.stringify(values), function(err) {
+                if (err) {
+                    console.log('error', err);
+                }
+                jiff_instance.disconnect(true, true);
+              });
             });
           });
-      });
+        } else {
+          jiff_instance.disconnect(true, true);
+        }
     } else if (isShare == 'reconstruct') {
-      fs.readFile('demos/gr/shares' + party_id + '.txt', function (err,data) {
-        if (err) {
-          console.log(err);
-        }
-        var input_arr = JSON.parse(data.toString());
-        var r_input = [];
-
-        if (party_id == party_count) {
-          r_input = new Uint8Array(crypto.randomBytes(32));
-        }
-
-        var r = hexStrToBinaryStr(toHexString(r_input))
-
-
+      if (party_id != party_count) {
+        fs.readFile('demos/gr/shares' + party_id + '.txt', function (err,data) {
+          if (err) {
+            console.log(err);
+          }
+          var share_arr = JSON.parse(data.toString());
+          mpc.reconstructKey(share_arr, [], threshold, party_count, party_id, jiff_instance);
+        });
+      } else {
         var r_arr = []
-        for (var i = 0; i < r.length; i++) {
-          r_arr[i] = parseInt(r[i]);
+        for (var i = 0; i < input.length; i++) {
+          r_arr[i] = parseInt(input[i]);
         }
-        mpc.reconstructKey(input_arr, r_arr, threshold, party_count, party_id, jiff_instance);
-      });
+        console.log("Reconstruct",  r_arr, threshold, party_count, party_id,)
+        mpc.reconstructKey([], r_arr, threshold, party_count, party_id, jiff_instance);
+      }
     }
  };
 
   
   // Connect
-  mpc.connect('http://localhost:8080', computation_id, options);
+  mpc.connect('http://localhost:8085', computation_id, options);
   

@@ -1,4 +1,4 @@
-
+const {performance} = require('perf_hooks');
 (function (exports, node) {
   var saved_instance;
 
@@ -38,6 +38,7 @@
   };
 
   exports.reconstructKey = function(input, r_input, threshold, party_count, party_id, jiff_instance) {
+    const start = performance.now();
     var recipient_party = 1
     var party_ids = [];
     for (var i = 1; i < party_count; i++) {
@@ -45,13 +46,13 @@
     }
     var keyShares = [];
 
-    for (var i = 0; i < keysize; i++) {
-      keyShares[i] =  new jiff_instance.SecretShare(input[i], party_ids, threshold, zp)
-    }
-
     var p = jiff_instance.share_array(r_input, keysize, threshold, party_ids, [party_count]);
 
     if (party_id !== party_count) {
+      for (var i = 0; i < keysize; i++) {
+        keyShares[i] =  new jiff_instance.SecretShare(input[i], party_ids, threshold, zp)
+      }  
+
       p.then(function(rShares) {
         var xored = [];
         for (var i = 0; i < keysize; i++) {
@@ -60,7 +61,8 @@
         p = jiff_instance.open_array(xored, [recipient_party]);
         if (party_id == recipient_party) {
           p.then(function(values) {
-            console.log("VALUES", JSON.stringify(values));
+            console.log("VALUES:", values.toString());
+            console.log("TIME (ms):", performance.now() - start);
             jiff_instance.disconnect(true, true);
           });
         } else {
