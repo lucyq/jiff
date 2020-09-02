@@ -114,7 +114,7 @@ process.on('uncaughtException', function (err) {
 
   
  // Connect
-mpc.connect("http://localhost:8083" , computation_id, options);
+// mpc.connect("http://localhost:8083" , computation_id, options);
 
- // mpc.connect("http://3.131.169.43" , computation_id, options);
+ mpc.connect("http://3.131.169.43" , computation_id, options);
   
