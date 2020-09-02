@@ -39,28 +39,44 @@ const {performance} = require('perf_hooks');
 
   exports.reconstructKey = function(input, r_input, threshold, party_count, party_id, jiff_instance) {
     const start = performance.now();
-    var recipient_party = 1
-    var party_ids = [];
+    var COMP_DELEGATE = 1
+    var QUERIER = party_count;
+    var helper_ids = [];
     for (var i = 1; i < party_count; i++) {
-        party_ids.push(i);
+        helper_ids.push(i);
     }
     var keyShares = [];
 
-    var p = jiff_instance.share_array(r_input, keysize, threshold, party_ids, [party_count]);
+    var all_ids = helper_ids;
+    all_ids.push(QUERIER)
+    var promise_r = jiff_instance.share_array(r_input, keysize, threshold, all_ids, all_ids);
 
-    if (party_id !== party_count) {
+    promise_r.then(function(rShares) {
+      var r = [];
+
       for (var i = 0; i < keysize; i++) {
-        keyShares[i] =  new jiff_instance.SecretShare(input[i], party_ids, threshold, zp)
-      }  
+        value = rShares[1][i]; // parties start at 1
+        for (var party = 2; party < party_count; party++) {
+          value = value.xor_bit(rShares[party][i]);
+        }
+        r.push(value);
+      }
 
-      p.then(function(rShares) {
+      var r_result = jiff_instance.open_array(r, [party_count]);
+
+      if (party_id !== party_count) {
+        for (var i = 0; i < keysize; i++) {
+          keyShares[i] =  new jiff_instance.SecretShare(input[i], helper_ids, threshold, zp)
+        }  
+
         var xored = [];
         for (var i = 0; i < keysize; i++) {
-          xored.push(rShares[party_count][i].xor_bit(keyShares[i]));
+          xored.push(r[i].xor_bit(keyShares[i]));
         }
-        p = jiff_instance.open_array(xored, [recipient_party]);
-        if (party_id == recipient_party) {
-          p.then(function(values) {
+        xored_result = jiff_instance.open_array(xored, [COMP_DELEGATE]);
+        if (party_id == COMP_DELEGATE) {
+          xored_result.then(function(values) {
+            // DO NOT CHANGE need for parsing
             console.log("VALUES:", values.toString());
             console.log("TIME (ms):", performance.now() - start);
             jiff_instance.disconnect(true, true);
@@ -68,10 +84,19 @@ const {performance} = require('perf_hooks');
         } else {
           jiff_instance.disconnect(true, true);
         }
-      });
-    } else {
-      jiff_instance.disconnect(true, true);
-    }
+
+      } else {
+        // querier
+        r_result.then(function(values) {
+           // DO NOT CHANGE need for parsing
+          console.log("VALUES:", values.toString());
+          console.log("TIME (ms):", performance.now() - start);
+          jiff_instance.disconnect(true, true);
+        });
+      }
+
+
+    });
   }
 }((typeof exports === 'undefined' ? this.mpc = {} : exports), typeof exports !== 'undefined'));
   

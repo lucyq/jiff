@@ -92,21 +92,29 @@ process.on('uncaughtException', function (err) {
           if (err) {
             console.log(err);
           }
+
+          var r_arr = []
+          for (var i = 0; i < input.length; i++) {
+            r_arr[i] = parseInt(input[i]);
+          }
+
           var share_arr = JSON.parse(data.toString());
-          mpc.reconstructKey(share_arr, [], threshold, party_count, party_id, jiff_instance);
+          mpc.reconstructKey(share_arr, r_arr, threshold, party_count, party_id, jiff_instance);
         });
       } else {
         var r_arr = []
         for (var i = 0; i < input.length; i++) {
           r_arr[i] = parseInt(input[i]);
         }
-        console.log("Reconstruct",  r_arr, threshold, party_count, party_id,)
+        // console.log("Reconstruct",  r_arr, threshold, party_count, party_id,)
         mpc.reconstructKey([], r_arr, threshold, party_count, party_id, jiff_instance);
       }
     }
  };
 
   
-  // Connect
-  mpc.connect("http://3.131.169.43" , computation_id, options);
+ // Connect
+mpc.connect("http://localhost:8083" , computation_id, options);
+
+ // mpc.connect("http://3.131.169.43" , computation_id, options);
   
